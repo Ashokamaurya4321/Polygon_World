@@ -127,36 +127,36 @@ class Game {
         // Add difficulty settings
         this.difficulties = {
             easy: {
-                planeSpeed: 6,
-                baseSpeed: 5,
-                obstacleFrequency: 1,
+                planeSpeed: 5,        // Reduced from 6
+                baseSpeed: 4,         // Reduced from 5
+                obstacleFrequency: 0.8, // Reduced from 1
                 scoreMultiplier: 1,
-                gravity: 3,      // Downward speed when not holding up
-                maxDownSpeed: 8   // Maximum downward speed with down key
+                gravity: 2.5,         // Reduced from 3
+                maxDownSpeed: 7       // Reduced from 8
             },
             medium: {
-                planeSpeed: 8,
-                baseSpeed: 7,
-                obstacleFrequency: 1.5,
+                planeSpeed: 6,        // Reduced from 7
+                baseSpeed: 5,         // Reduced from 6
+                obstacleFrequency: 1.2, // Reduced from 1.5
                 scoreMultiplier: 1.5,
-                gravity: 4,
-                maxDownSpeed: 10
+                gravity: 3,           // Reduced from 4
+                maxDownSpeed: 8       // Reduced from 9
             },
             hard: {
-                planeSpeed: 10,
-                baseSpeed: 9,
-                obstacleFrequency: 2,
+                planeSpeed: 7,        // Reduced from 8
+                baseSpeed: 6,         // Reduced from 7
+                obstacleFrequency: 1.5, // Reduced from 1.8
                 scoreMultiplier: 2,
-                gravity: 5,
-                maxDownSpeed: 12
+                gravity: 3.5,         // Reduced from 4.5
+                maxDownSpeed: 9       // Reduced from 10
             },
             extreme: {
-                planeSpeed: 12,
-                baseSpeed: 12,
-                obstacleFrequency: 2.5,
+                planeSpeed: 8,        // Reduced from 9
+                baseSpeed: 7,         // Reduced from 8
+                obstacleFrequency: 1.8, // Reduced from 2
                 scoreMultiplier: 3,
-                gravity: 6,
-                maxDownSpeed: 15
+                gravity: 4,           // Reduced from 5
+                maxDownSpeed: 10      // Reduced from 11
             }
         };
         
@@ -223,27 +223,23 @@ class Game {
 
         buttons.forEach(button => {
             button.addEventListener('click', () => {
-                // Remove selected class from all buttons
                 buttons.forEach(btn => btn.classList.remove('selected'));
-                // Add selected class to clicked button
                 button.classList.add('selected');
                 
-                // Set difficulty
                 this.difficulty = button.dataset.difficulty;
-                
-                // Enable start button
                 startButton.disabled = false;
                 startButton.textContent = 'Start Game';
                 
-                // Update game parameters based on difficulty
                 const diffSettings = this.difficulties[this.difficulty];
                 this.minSpeed = diffSettings.baseSpeed;
                 this.obstacleSpeed = this.minSpeed;
                 this.scoreMultiplier = diffSettings.scoreMultiplier;
                 
-                console.log('Difficulty selected:', {
-                    difficulty: this.difficulty,
-                    settings: diffSettings
+                console.log('Difficulty Selected - Initial Speeds:', {
+                    obstacleSpeed: this.obstacleSpeed,
+                    planeUpSpeed: -diffSettings.planeSpeed,
+                    planeDownSpeed: diffSettings.maxDownSpeed,
+                    planeGravity: diffSettings.gravity
                 });
             });
         });
@@ -549,23 +545,9 @@ class Game {
     updateScore() {
         if (!this.gameStarted || this.gameOver) return;
         
-        const oldScore = this.score;
-        // Base score increases constantly
         this.score += this.baseScoreRate * this.scoreMultiplier;
-
-        // Update score multiplier based on level
-        this.scoreMultiplier = 1 + (this.level - 1) * 0.5;  // 50% increase per level
-
-        // Update obstacle pass points based on level
-        this.obstaclePassPoints = 2 * this.level;  // 2 points at level 1, 4 at level 2, etc.
-
-        console.log({
-            oldScore: oldScore,
-            newScore: this.score,
-            baseScoreRate: this.baseScoreRate,
-            scoreMultiplier: this.scoreMultiplier,
-            totalIncrement: this.baseScoreRate * this.scoreMultiplier
-        });
+        this.scoreMultiplier = 1 + (this.level - 1) * 0.5;
+        this.obstaclePassPoints = 2 * this.level;
     }
 
     validateScore() {
@@ -598,25 +580,14 @@ class Game {
             }
 
             obstacle.x -= this.obstacleSpeed;
-            
-            // Apply animations
             this.updateObstacleAnimations(obstacle);
 
-            // Award points for passing obstacles
             if (!obstacle.passed && this.plane.x > obstacle.x + obstacle.width) {
-                const oldScore = this.score;
                 this.score += this.obstaclePassPoints;
-                console.log({
-                    event: 'obstacle_passed',
-                    oldScore: oldScore,
-                    pointsAdded: this.obstaclePassPoints,
-                    newScore: this.score
-                });
                 obstacle.passed = true;
                 this.obstaclesPassed++;
             }
 
-            // Start destroying animation when obstacle exits screen
             if (obstacle.x + obstacle.width < 0) {
                 obstacle.destroying = true;
                 if (!obstacle.passed) {
@@ -630,39 +601,44 @@ class Game {
         if (!this.gameStarted || this.gameOver) return;
         
         for (const obstacle of this.obstacles) {
-            switch(obstacle.type) {
-                case 'rectangle':
-                    if (this.checkRectangleCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
-                case 'triangle':
-                    if (this.checkTriangleCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
-                case 'hexagon':
-                case 'pentagon':
-                case 'octagon':
-                    if (this.checkPolygonCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
-                case 'circle':
-                    if (this.checkCircleCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
-                case 'star':
-                    if (this.checkStarCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
-                case 'diamond':
-                    if (this.checkDiamondCollision(obstacle)) {
-                        this.endGame();
-                    }
-                    break;
+            // Only check collision if the obstacle is in range of the plane
+            if (obstacle.x + obstacle.width >= this.plane.x && 
+                obstacle.x <= this.plane.x + this.plane.width) {
+                
+                let collision = false;
+                
+                switch(obstacle.type) {
+                    case 'rectangle':
+                        collision = this.checkRectangleCollision(obstacle);
+                        break;
+                    case 'triangle':
+                        collision = this.checkTriangleCollision(obstacle);
+                        break;
+                    case 'hexagon':
+                    case 'pentagon':
+                    case 'octagon':
+                        collision = this.checkPolygonCollision(obstacle);
+                        break;
+                    case 'circle':
+                        collision = this.checkCircleCollision(obstacle);
+                        break;
+                    case 'star':
+                        collision = this.checkStarCollision(obstacle);
+                        break;
+                    case 'diamond':
+                        collision = this.checkDiamondCollision(obstacle);
+                        break;
+                }
+                
+                if (collision) {
+                    console.log(`Game Over: Plane crashed into ${obstacle.type} obstacle!`, {
+                        obstacleType: obstacle.type,
+                        obstaclePosition: { x: obstacle.x, y: obstacle.y },
+                        planePosition: { x: this.plane.x, y: this.plane.y }
+                    });
+                    this.endGame('obstacle');
+                    return;
+                }
             }
         }
     }
@@ -741,19 +717,34 @@ class Game {
     }
 
     updateLevel() {
-        // Calculate level based on integer score value
         const currentScore = Math.floor(this.score);
         const newLevel = Math.floor(currentScore / 100) + 1;
         
         if (newLevel !== this.level) {
-            console.log(`Level up! ${this.level} -> ${newLevel}`, {
-                currentScore: currentScore,
-                calculatedLevel: newLevel,
-                oldLevel: this.level
+            this.level = newLevel;
+            
+            const diffSettings = this.difficulties[this.difficulty];
+            const baseSpeed = diffSettings.baseSpeed;
+            let maxSpeedIncrease;
+            
+            switch(this.difficulty) {
+                case 'easy': maxSpeedIncrease = 2; break;
+                case 'medium': maxSpeedIncrease = 3; break;
+                case 'hard': maxSpeedIncrease = 4; break;
+                case 'extreme': maxSpeedIncrease = 5; break;
+                default: maxSpeedIncrease = 2;
+            }
+            
+            const levelSpeedIncrease = Math.min((this.level - 1) * 0.3, maxSpeedIncrease);
+            this.obstacleSpeed = Math.min(baseSpeed + levelSpeedIncrease, baseSpeed + maxSpeedIncrease);
+            
+            console.log('Speed Update - Level:', this.level, {
+                obstacleSpeed: this.obstacleSpeed,
+                planeUpSpeed: -diffSettings.planeSpeed,
+                planeDownSpeed: diffSettings.maxDownSpeed,
+                planeGravity: diffSettings.gravity
             });
             
-            this.level = newLevel;
-            this.obstacleSpeed = this.minSpeed + (this.level - 1) * 0.5;
             document.getElementById('level').textContent = this.level;
             this.updateColors();
         }
@@ -768,29 +759,89 @@ class Game {
             localStorage.setItem('highScore', this.highScore);
         }
         
-        // Update score display
-        document.getElementById('highScore').textContent = this.highScore;
+        // Update score displays
         document.getElementById('score').textContent = currentScore;
+        document.getElementById('level').textContent = this.level;
         document.getElementById('obstaclesPassed').textContent = this.obstaclesPassed;
+        
+        // Update or create the high score display
+        let highScoreDisplay = document.querySelector('.high-score-display');
+        if (!highScoreDisplay) {
+            highScoreDisplay = document.createElement('div');
+            highScoreDisplay.className = 'high-score-display';
+            document.body.appendChild(highScoreDisplay);
+        }
+        highScoreDisplay.textContent = `High Score: ${this.highScore}`;
     }
 
-    endGame() {
-        if (this.gameOver) return; // Prevent multiple calls
+    endGame(reason) {
+        if (this.gameOver) return;
         
-        console.log("Game over! Final score:", Math.floor(this.score));
+        // Log all current speeds before reset
+        console.log('Current Speeds Before Reset:', {
+            planeCurrentSpeed: this.plane.speed,
+            obstacleCurrentSpeed: this.obstacleSpeed,
+            currentBaseSpeed: this.minSpeed,
+            currentLevel: this.level,
+            difficulty: this.difficulty,
+            difficultySettings: {
+                planeUpSpeed: -this.difficulties[this.difficulty].planeSpeed,
+                planeDownSpeed: this.difficulties[this.difficulty].maxDownSpeed,
+                planeGravity: this.difficulties[this.difficulty].gravity,
+                baseSpeed: this.difficulties[this.difficulty].baseSpeed
+            }
+        });
+        
         this.gameOver = true;
+        
+        // Reset all speeds to initial difficulty values
+        const diffSettings = this.difficulties[this.difficulty];
+        this.obstacleSpeed = diffSettings.baseSpeed;
+        this.minSpeed = diffSettings.baseSpeed;
+        this.plane.speed = 0;
+        
+        console.log('Speeds After Reset:', {
+            planeSpeed: this.plane.speed,
+            obstacleSpeed: this.obstacleSpeed,
+            baseSpeed: this.minSpeed
+        });
         
         // Stop all obstacle animations
         this.obstacles.forEach(obstacle => {
             obstacle.animation = 'none';
         });
         
-        // Reset plane speed
-        this.plane.speed = 0;
+        // Create and show final score display with restart button
+        const finalScoreDisplay = document.createElement('div');
+        finalScoreDisplay.className = 'final-score-display';
         
-        // Show game over screen
-        document.getElementById('gameOver').classList.remove('hidden');
-        document.getElementById('finalScore').textContent = Math.floor(this.score);
+        // Add score text
+        const scoreText = document.createElement('div');
+        scoreText.textContent = `Final Score: ${Math.floor(this.score)}`;
+        finalScoreDisplay.appendChild(scoreText);
+        
+        // Add restart button
+        const restartButton = document.createElement('button');
+        restartButton.className = 'restart-button';
+        restartButton.textContent = 'Play Again';
+        restartButton.onclick = () => {
+            finalScoreDisplay.remove();
+            this.resetGameState();
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.style.display = 'flex';
+            }
+            const buttons = document.querySelectorAll('.difficulty-btn');
+            buttons.forEach(btn => btn.classList.remove('selected'));
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.disabled = true;
+                startButton.textContent = 'Select Difficulty to Start';
+            }
+        };
+        finalScoreDisplay.appendChild(restartButton);
+        
+        document.body.appendChild(finalScoreDisplay);
     }
 
     update() {
@@ -798,7 +849,7 @@ class Game {
         
         // Calculate delta time
         const currentTime = Date.now();
-        this.deltaTime = (currentTime - this.lastUpdateTime) / 1000; // Convert to seconds
+        this.deltaTime = (currentTime - this.lastUpdateTime) / 1000;
         this.lastUpdateTime = currentTime;
         
         // Update plane position with gravity
@@ -806,25 +857,29 @@ class Game {
         
         // Apply gravity if not holding up
         if (!this.controls.isUpPressed && !this.controls.isTouchActive) {
-            // If down is pressed, use max down speed, otherwise use gravity
             this.plane.speed = this.controls.isDownPressed ? 
                 diffSettings.maxDownSpeed : 
                 diffSettings.gravity;
         }
 
         // Update plane position using delta time
-        this.plane.y += this.plane.speed * this.deltaTime * 60; // Normalize to 60fps
+        this.plane.y += this.plane.speed * this.deltaTime * 60;
         
-        // Check for boundary collision and end game if plane touches boundaries
-        if (this.plane.y <= 0 || this.plane.y + this.plane.height >= this.canvas.height) {
-            console.log('Game over: Boundary collision!');
-            this.endGame();
+        // Check for boundary collision
+        if (this.plane.y <= 0) {
+            console.log('Game Over: Plane crashed into ceiling!');
+            this.endGame('ceiling');
             return;
         }
         
-        // Update score using delta time
-        this.score += this.baseScoreRate * this.scoreMultiplier * this.deltaTime * 60;
+        if (this.plane.y + this.plane.height >= this.canvas.height) {
+            console.log('Game Over: Plane crashed into floor!');
+            this.endGame('floor');
+            return;
+        }
         
+        // Update game state
+        this.score += this.baseScoreRate * this.scoreMultiplier * this.deltaTime * 60;
         this.validateScore();
         this.updateLevel();
         this.updateObstacles();
@@ -1063,36 +1118,40 @@ class Game {
 
     // Add a resetGameState method to the Game class
     resetGameState() {
-        // Reset all game state variables
+        // Reset game variables
         this.score = 0;
         this.level = 1;
         this.obstaclesPassed = 0;
         this.gameOver = false;
         this.gameStarted = false;
         this.obstacles = [];
-        this.obstacleSpeed = this.minSpeed;
-        this.scoreMultiplier = 1;
+        
+        // Reset plane position
+        this.plane.y = this.canvas.height / 2;
+        this.plane.speed = 0;
         
         // Reset UI elements
         document.getElementById('score').textContent = '0';
         document.getElementById('level').textContent = '1';
         document.getElementById('obstaclesPassed').textContent = '0';
         
-        // Reset colors to level 1
+        // Reset colors
         this.updateColors();
         
-        console.log('Game state reset:', {
-            score: this.score,
-            level: this.level,
-            obstaclesPassed: this.obstaclesPassed
-        });
-        
-        // Reset difficulty-specific parameters
+        // Reset all speeds to initial difficulty values
         if (this.difficulty) {
             const diffSettings = this.difficulties[this.difficulty];
             this.minSpeed = diffSettings.baseSpeed;
             this.obstacleSpeed = this.minSpeed;
+            this.plane.speed = 0;
             this.scoreMultiplier = diffSettings.scoreMultiplier;
+            
+            console.log('Game Reset - Speeds:', {
+                difficulty: this.difficulty,
+                obstacleSpeed: this.obstacleSpeed,
+                planeSpeed: this.plane.speed,
+                baseSpeed: this.minSpeed
+            });
         }
     }
 
@@ -1103,20 +1162,16 @@ class Game {
             return;
         }
 
-        // Add touch instructions for mobile devices
-        if ('ontouchstart' in window) {
-            const instructions = document.createElement('p');
-            instructions.textContent = 'Touch and hold screen to fly up';
-            document.querySelector('.start-screen').insertBefore(
-                instructions,
-                document.getElementById('startButton')
-            );
-        }
-
         console.log('Starting game with difficulty:', this.difficulty);
         this.resetGameState();
         this.gameStarted = true;
-        document.getElementById('startScreen').classList.add('hidden');
+        
+        // Hide start screen when game starts
+        const startScreen = document.getElementById('startScreen');
+        if (startScreen) {
+            startScreen.style.display = 'none';
+        }
+        
         this.lastUpdateTime = Date.now();
         this.gameLoop();
     }
@@ -1125,18 +1180,23 @@ class Game {
 // Update the restartGame function
 function restartGame() {
     console.log('Restarting game...');
-    document.getElementById('gameOver').classList.add('hidden');
     
     // Show start screen with difficulty selection
-    document.getElementById('startScreen').classList.remove('hidden');
+    const startScreen = document.getElementById('startScreen');
+    if (startScreen) {
+        startScreen.style.display = 'flex';
+    }
     
     // Reset difficulty selection
     const buttons = document.querySelectorAll('.difficulty-btn');
     buttons.forEach(btn => btn.classList.remove('selected'));
     
     // Disable start button until difficulty is selected
-    document.getElementById('startButton').disabled = true;
-    document.getElementById('startButton').textContent = 'Select Difficulty to Start';
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.textContent = 'Select Difficulty to Start';
+    }
     
     // Create new game instance
     const game = new Game();
@@ -1170,4 +1230,50 @@ window.onload = () => {
     } else {
         console.error('Game initialization failed due to missing elements');
     }
-}; 
+
+    // Add floating polygons after game initialization
+    addFloatingPolygons();
+
+    // Add this to your window.onload function
+    function initializePandaEffects() {
+        const pandas = document.querySelectorAll('.panda-image');
+        
+        pandas.forEach(panda => {
+            panda.addEventListener('mouseover', () => {
+                panda.style.transform = panda.classList.contains('left') ? 'rotate(-25deg) scale(1.1)' :
+                                      panda.classList.contains('right') ? 'rotate(25deg) scale(1.1)' :
+                                      'rotate(25deg) scale(1.1)';
+                panda.style.opacity = '0.8';
+            });
+            
+            panda.addEventListener('mouseout', () => {
+                panda.style.transform = panda.classList.contains('left') ? 'rotate(-15deg)' :
+                                      panda.classList.contains('right') ? 'rotate(15deg)' :
+                                      'rotate(15deg)';
+                panda.style.opacity = '0.15';
+            });
+        });
+    }
+
+    // Add this call to your window.onload function
+    window.addEventListener('load', initializePandaEffects);
+};
+
+// Add floating polygons function
+function addFloatingPolygons() {
+    const startScreen = document.getElementById('startScreen');
+    const shapes = ['⭐', '⬡', '⬢', '⬣', '△', '□'];
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'];
+    
+    for (let i = 0; i < 15; i++) {
+        const polygon = document.createElement('div');
+        polygon.className = 'floating-polygon';
+        polygon.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+        polygon.style.color = colors[Math.floor(Math.random() * colors.length)];
+        polygon.style.fontSize = Math.random() * 30 + 20 + 'px';
+        polygon.style.left = Math.random() * 100 + '%';
+        polygon.style.top = Math.random() * 100 + '%';
+        polygon.style.animationDelay = Math.random() * 5 + 's';
+        startScreen.appendChild(polygon);
+    }
+} 
